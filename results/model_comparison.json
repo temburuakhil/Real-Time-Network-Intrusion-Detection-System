@@ -1,0 +1,80 @@
+[
+    {
+        "Model": "Logistic Regression",
+        "Accuracy": 0.7531,
+        "Precision": 0.7146,
+        "Recall": 0.9183,
+        "F1-Score": 0.8038,
+        "ROC-AUC": 0.8146,
+        "Training Time (s)": 0.41,
+        "TN": 20377,
+        "FP": 16623,
+        "FN": 3704,
+        "TP": 41628
+    },
+    {
+        "Model": "Naive Bayes",
+        "Accuracy": 0.75,
+        "Precision": 0.8542,
+        "Recall": 0.6583,
+        "F1-Score": 0.7435,
+        "ROC-AUC": 0.8445,
+        "Training Time (s)": 0.04,
+        "TN": 31905,
+        "FP": 5095,
+        "FN": 15491,
+        "TP": 29841
+    },
+    {
+        "Model": "Stochastic Gradient Descent",
+        "Accuracy": 0.7593,
+        "Precision": 0.7199,
+        "Recall": 0.9213,
+        "F1-Score": 0.8083,
+        "ROC-AUC": 0.8368,
+        "Training Time (s)": 0.19,
+        "TN": 20752,
+        "FP": 16248,
+        "FN": 3568,
+        "TP": 41764
+    },
+    {
+        "Model": "Random Forest",
+        "Accuracy": 0.8591,
+        "Precision": 0.8042,
+        "Recall": 0.9835,
+        "F1-Score": 0.8849,
+        "ROC-AUC": 0.9568,
+        "Training Time (s)": 1.78,
+        "TN": 26147,
+        "FP": 10853,
+        "FN": 748,
+        "TP": 44584
+    },
+    {
+        "Model": "AdaBoost",
+        "Accuracy": 0.8187,
+        "Precision": 0.7626,
+        "Recall": 0.9739,
+        "F1-Score": 0.8554,
+        "ROC-AUC": 0.9507,
+        "Training Time (s)": 4.66,
+        "TN": 23253,
+        "FP": 13747,
+        "FN": 1182,
+        "TP": 44150
+    },
+    {
+        "Model": "Multi-Layer Perceptron",
+        "Accuracy": 0.8127,
+        "Precision": 0.7641,
+        "Recall": 0.9545,
+        "F1-Score": 0.8488,
+        "ROC-AUC": 0.9384,
+        "Training Time (s)": 30.86,
+        "TN": 23644,
+        "FP": 13356,
+        "FN": 2064,
+        "TP": 43268
+    }
+]
