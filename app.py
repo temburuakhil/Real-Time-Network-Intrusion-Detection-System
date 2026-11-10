@@ -329,46 +329,122 @@ with tabs[0]:
 
 # ----------------- TAB 2: Batch Log Analyzer -----------------
 with tabs[1]:
-    st.markdown("### Batch Traffic Log Analysis")
-    st.write("Upload a packet capture CSV or test using pre-packaged UNSW-NB15 sample records.")
+    st.markdown("### Batch Traffic Log & Document Analyzer")
+    st.write("Upload a packet capture document (CSV, Excel, TSV, TXT, or LOG) to perform automated real-time intrusion classification.")
 
-    batch_file = st.file_uploader("Upload Network Traffic CSV", type=["csv"])
-    
-    use_sample = st.button("📥 Load Sample Test Batch (200 records from UNSW-NB15)")
+    # Top action controls
+    col_upload, col_sample = st.columns([2.5, 1.5])
+    with col_upload:
+        batch_file = st.file_uploader(
+            "Choose a Network Traffic Document",
+            type=["csv", "xlsx", "xls", "tsv", "txt", "log"],
+            help="Upload raw UNSW-NB15 captures, custom network logs, or packet captures."
+        )
+    with col_sample:
+        st.markdown("**Quick Test Options:**")
+        load_sample = st.button("📥 Load Sample Test Batch (200 records)", use_container_width=True)
+        if os.path.exists("data/sample_test_packets.csv"):
+            with open("data/sample_test_packets.csv", "rb") as f_samp:
+                st.download_button(
+                    "📄 Download Sample CSV Template",
+                    data=f_samp.read(),
+                    file_name="nids_sample_template.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
 
-    df_batch_raw = None
-    if batch_file is not None:
-        df_batch_raw = pd.read_csv(batch_file)
-    elif use_sample and os.path.exists("data/sample_test_packets.csv"):
-        df_batch_raw = pd.read_csv("data/sample_test_packets.csv")
-        st.info("Loaded pre-packaged test batch (200 records).")
+    # Manage session state for uploaded data to persist across reruns
+    if 'batch_data' not in st.session_state:
+        st.session_state['batch_data'] = None
+    if 'batch_source' not in st.session_state:
+        st.session_state['batch_source'] = None
 
-    if df_batch_raw is not None:
-        st.write(f"Total Records in Batch: **{len(df_batch_raw)}**")
-        
-        # Preprocess batch
-        df_work = df_batch_raw.copy()
-        if 'state' in df_work.columns:
-            df_work['state_CON'] = (df_work['state'] == 'CON').astype(float)
-            df_work['state_INT'] = (df_work['state'] == 'INT').astype(float)
-        else:
-            if 'state_CON' not in df_work.columns: df_work['state_CON'] = 0.0
-            if 'state_INT' not in df_work.columns: df_work['state_INT'] = 0.0
-
-        missing = [f for f in FEATURE_NAMES if f not in df_work.columns]
-        if missing:
-            st.error(f"Missing required features in CSV: {missing}")
-        else:
-            X_batch = df_work[FEATURE_NAMES]
-            X_batch_scaled = scaler.transform(X_batch)
+    if load_sample and os.path.exists("data/sample_test_packets.csv"):
+        st.session_state['batch_data'] = pd.read_csv("data/sample_test_packets.csv")
+        st.session_state['batch_source'] = "Pre-packaged UNSW-NB15 Sample Batch (200 records)"
+    elif batch_file is not None:
+        try:
+            fname = batch_file.name.lower()
+            if fname.endswith(('.xlsx', '.xls')):
+                df_loaded = pd.read_excel(batch_file)
+            else:
+                encodings = ['utf-8', 'utf-8-sig', 'latin1', 'cp1252']
+                df_loaded = None
+                for enc in encodings:
+                    try:
+                        batch_file.seek(0)
+                        df_loaded = pd.read_csv(batch_file, encoding=enc)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                    except Exception:
+                        try:
+                            batch_file.seek(0)
+                            df_loaded = pd.read_csv(batch_file, sep=None, engine='python', encoding=enc)
+                            break
+                        except Exception:
+                            continue
+                if df_loaded is None:
+                    batch_file.seek(0)
+                    df_loaded = pd.read_csv(batch_file, encoding='latin1', on_bad_lines='skip')
             
-            # Predict
-            predictions = current_model.predict(X_batch_scaled)
+            st.session_state['batch_data'] = df_loaded
+            st.session_state['batch_source'] = f"Uploaded Document: {batch_file.name}"
+        except Exception as e:
+            st.error(f"⚠️ Error reading document: {e}. Please ensure the file is a valid CSV, Excel, or tabular text file.")
+
+    # Process and display if data is present
+    df_current_batch = st.session_state.get('batch_data')
+    if df_current_batch is not None and not df_current_batch.empty:
+        st.success(f"✅ Active Data Source: **{st.session_state.get('batch_source', 'Loaded Data')}** ({len(df_current_batch)} records)")
+
+        try:
+            # Flexible column normalization
+            df_work = df_current_batch.copy()
+            col_lookup = {str(c).strip().lower(): c for c in df_work.columns}
+
+            prepared_features = {}
+
+            # Handle state column
+            if 'state' in col_lookup:
+                state_series = df_work[col_lookup['state']].astype(str).str.strip().str.upper()
+                prepared_features['state_CON'] = (state_series == 'CON').astype(float)
+                prepared_features['state_INT'] = (state_series == 'INT').astype(float)
+            else:
+                if 'state_con' in col_lookup:
+                    prepared_features['state_CON'] = pd.to_numeric(df_work[col_lookup['state_con']], errors='coerce').fillna(0.0)
+                else:
+                    prepared_features['state_CON'] = pd.Series([0.0] * len(df_work))
+
+                if 'state_int' in col_lookup:
+                    prepared_features['state_INT'] = pd.to_numeric(df_work[col_lookup['state_int']], errors='coerce').fillna(0.0)
+                else:
+                    prepared_features['state_INT'] = pd.Series([0.0] * len(df_work))
+
+            # Handle numerical features with auto-imputation if missing
+            missing_features = []
+            for feat in NUMERICAL_FEATURES:
+                if feat.lower() in col_lookup:
+                    orig_col = col_lookup[feat.lower()]
+                    prepared_features[feat] = pd.to_numeric(df_work[orig_col], errors='coerce').fillna(0.0)
+                else:
+                    prepared_features[feat] = pd.Series([0.0] * len(df_work))
+                    missing_features.append(feat)
+
+            if missing_features:
+                st.info(f"ℹ️ Note: Auto-filled missing columns {missing_features} with neutral baseline values for model compatibility.")
+
+            # Construct clean feature matrix
+            X_input = pd.DataFrame(prepared_features)[FEATURE_NAMES]
+            X_scaled = scaler.transform(X_input)
+
+            # Predictions
+            predictions = current_model.predict(X_scaled)
             df_work['Predicted_Label'] = predictions
             df_work['Predicted_Class'] = df_work['Predicted_Label'].map({0: "Normal", 1: "Attack"})
 
             if hasattr(current_model, "predict_proba"):
-                df_work['Attack_Probability'] = current_model.predict_proba(X_batch_scaled)[:, 1].round(4)
+                df_work['Attack_Probability'] = current_model.predict_proba(X_scaled)[:, 1].round(4)
 
             # Summary Metrics
             attack_count = int(np.sum(predictions == 1))
@@ -376,41 +452,51 @@ with tabs[1]:
             attack_pct = (attack_count / len(predictions)) * 100
 
             m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Total Packets", len(predictions))
-            m2.metric("Attacks Caught", attack_count, delta=f"{attack_pct:.1f}% of total", delta_color="inverse")
-            m3.metric("Normal Packets", normal_count)
-            if 'label' in df_work.columns:
-                ground_truth_acc = (df_work['label'] == df_work['Predicted_Label']).mean() * 100
-                m4.metric("Batch Accuracy vs Ground Truth", f"{ground_truth_acc:.2f}%")
+            m1.metric("Total Records Analyzed", len(predictions))
+            m2.metric("Attacks Identified", attack_count, delta=f"{attack_pct:.1f}% attack rate", delta_color="inverse")
+            m3.metric("Normal Traffic", normal_count)
+            if 'label' in col_lookup:
+                actual_label = pd.to_numeric(df_work[col_lookup['label']], errors='coerce').fillna(0).astype(int)
+                ground_truth_acc = (actual_label == df_work['Predicted_Label']).mean() * 100
+                m4.metric("Accuracy vs Ground Truth", f"{ground_truth_acc:.2f}%")
             else:
-                m4.metric("Attack Ratio", f"{attack_pct:.1f}%")
+                m4.metric("Attack Distribution", f"{attack_pct:.1f}%")
 
-            # Visual breakdown
+            # Visual breakdown chart
             st.markdown("#### Traffic Distribution Breakdown")
-            fig, ax = plt.subplots(figsize=(6, 2.5))
-            colors = ['#22c55e', '#ef4444']
-            ax.barh(["Normal", "Attack"], [normal_count, attack_count], color=colors)
-            ax.set_xlabel("Packet Count")
+            fig, ax = plt.subplots(figsize=(6, 2.2))
+            ax.barh(["Normal Traffic", "Malicious Attacks"], [normal_count, attack_count], color=['#22c55e', '#ef4444'])
+            ax.set_xlabel("Number of Packets / Sessions")
+            for i, v in enumerate([normal_count, attack_count]):
+                ax.text(v + (len(predictions) * 0.01), i, f" {v:,} ({v/len(predictions)*100:.1f}%)", va='center', fontweight='bold')
             st.pyplot(fig)
 
             # Table view
-            st.markdown("#### Classified Packets Preview")
-            cols_to_show = ['Predicted_Class', 'rate', 'sttl', 'sload', 'dload', 'ct_srv_src', 'state_CON', 'state_INT']
+            st.markdown("#### Classified Flow Preview")
+            cols_preview = ['Predicted_Class']
             if 'Attack_Probability' in df_work.columns:
-                cols_to_show.insert(1, 'Attack_Probability')
-            if 'label' in df_work.columns:
-                cols_to_show.insert(0, 'label')
+                cols_preview.append('Attack_Probability')
+            if 'label' in col_lookup:
+                cols_preview.append(col_lookup['label'])
+            
+            # Add top relevant features that exist
+            for f in ['rate', 'sttl', 'sload', 'dload', 'ct_srv_src', 'state']:
+                if f in col_lookup:
+                    cols_preview.append(col_lookup[f])
 
-            st.dataframe(df_work[cols_to_show].head(50), use_container_width=True)
+            st.dataframe(df_work[cols_preview].head(100), use_container_width=True)
 
-            # Download CSV
+            # Export classified CSV
             csv_export = df_work.to_csv(index=False).encode('utf-8')
             st.download_button(
-                "📥 Download Classified Log (CSV)",
+                "📥 Download Classified Document (CSV)",
                 data=csv_export,
-                file_name="nids_classified_batch.csv",
-                mime="text/csv"
+                file_name="nids_classified_output.csv",
+                mime="text/csv",
+                use_container_width=True
             )
+        except Exception as proc_err:
+            st.error(f"⚠️ Error processing document: {proc_err}")
 
 # ----------------- TAB 3: Benchmark & Evaluation -----------------
 with tabs[2]:
