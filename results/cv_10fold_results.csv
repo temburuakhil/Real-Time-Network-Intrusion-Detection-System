@@ -1,0 +1,7 @@
+Model,Accuracy,Precision,Recall,F1-Score,ROC-AUC
+Random Forest,0.955,0.9592,0.9754,0.9672,0.9912
+Multi-Layer Perceptron,0.9382,0.9303,0.9829,0.9558,0.9847
+AdaBoost,0.9299,0.9244,0.9769,0.9499,0.9779
+Logistic Regression,0.8918,0.8904,0.959,0.9234,0.937
+SGD Classifier,0.8855,0.889,0.9505,0.9186,0.9342
+Gaussian Naive Bayes,0.745,0.9476,0.662,0.7795,0.9094

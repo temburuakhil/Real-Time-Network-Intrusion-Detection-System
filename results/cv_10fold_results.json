@@ -1,0 +1,50 @@
+[
+    {
+        "Model":"Random Forest",
+        "Accuracy":0.955,
+        "Precision":0.9592,
+        "Recall":0.9754,
+        "F1-Score":0.9672,
+        "ROC-AUC":0.9912
+    },
+    {
+        "Model":"Multi-Layer Perceptron",
+        "Accuracy":0.9382,
+        "Precision":0.9303,
+        "Recall":0.9829,
+        "F1-Score":0.9558,
+        "ROC-AUC":0.9847
+    },
+    {
+        "Model":"AdaBoost",
+        "Accuracy":0.9299,
+        "Precision":0.9244,
+        "Recall":0.9769,
+        "F1-Score":0.9499,
+        "ROC-AUC":0.9779
+    },
+    {
+        "Model":"Logistic Regression",
+        "Accuracy":0.8918,
+        "Precision":0.8904,
+        "Recall":0.959,
+        "F1-Score":0.9234,
+        "ROC-AUC":0.937
+    },
+    {
+        "Model":"SGD Classifier",
+        "Accuracy":0.8855,
+        "Precision":0.889,
+        "Recall":0.9505,
+        "F1-Score":0.9186,
+        "ROC-AUC":0.9342
+    },
+    {
+        "Model":"Gaussian Naive Bayes",
+        "Accuracy":0.745,
+        "Precision":0.9476,
+        "Recall":0.662,
+        "F1-Score":0.7795,
+        "ROC-AUC":0.9094
+    }
+]
